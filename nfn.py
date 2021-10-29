@@ -75,7 +75,7 @@ class CoreNeuroFuzzy:
             
         return self.f2 # shape is (num of inputs, num of all antecedents)
     
-    def rule_base_layer(self, o2):     
+    def rule_base_layer(self, o2, inference='minimum'):     
         """
         Fuzzy Logic Rule Matching (with Minimum inference).
 
@@ -93,7 +93,10 @@ class CoreNeuroFuzzy:
 
         """
         rule_activations = np.swapaxes(np.multiply(o2, self.W_2.T[:, np.newaxis]), 0, 1) # the shape is (num of observations, num of rules, num of antecedents)
-        self.f3 = np.nanmin(rule_activations, axis=2) # the shape is (num of observations, num of rules)
+        if inference == 'minimum':
+            self.f3 = np.nanmin(rule_activations, axis=2) # the shape is (num of observations, num of rules)
+        elif inference == 'product':
+            self.f3 = np.nanprod(rule_activations, axis=2)
         return self.f3
     
     def consequence_layer(self, o3):   

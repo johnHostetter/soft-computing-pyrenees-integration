@@ -20,11 +20,13 @@ import copy
 import torch
 import random
 import numpy as np
+import matplotlib.pyplot as plt
 
+from ecm import ECM
 from nfn import AdaptiveNeuroFuzzy
 from clip import CLIP, rule_creation
 
-GLOBAL_SEED = 1
+GLOBAL_SEED = 0
 np.random.seed(GLOBAL_SEED)
 random.seed(GLOBAL_SEED)
 
@@ -83,9 +85,10 @@ class CFQLModel(AdaptiveNeuroFuzzy):
     
     def infer(self, x):
         self.truth_value(x)
-        num = (self.current_rule_activations[:,np.newaxis] * self.q_table).sum(axis=0)
-        den = self.current_rule_activations.sum()
-        return np.argmax(num / den)
+        numerator = (self.current_rule_activations[:,np.newaxis] * self.q_table).sum(axis=0)
+        denominator = self.current_rule_activations.sum()
+        q_values = numerator / denominator
+        return q_values
         
     def c_k(self, train_X, k):
         self.predict(train_X) # we just need the rule activations in layer 3, ignore the returned values
@@ -174,7 +177,9 @@ class CFQLModel(AdaptiveNeuroFuzzy):
         return action
 
     def get_action(self, state):
-        return self.infer(state)
+        q_values = self.infer(state)
+        print(q_values)
+        return np.argmax(q_values)
 
     def q_backup_sparse_sampled(self, q_values, state_index, action_index, 
                                 next_state_index, reward, rule_weights, discount=0.99):
@@ -247,7 +252,8 @@ class CFQLModel(AdaptiveNeuroFuzzy):
         self.q_table = q_values
         return self.q_table
     
-    def fit(self, train_X, trajectories, verbose=True):
+    def fit(self, train_X, trajectories, ecm=True, Dthr=1e-3, prune_rules=True, apfrb_sensitivity_analysis=False, verbose=True):
+        print('The shape of the training data is: (%d, %d)' % (train_X.shape[0], train_X.shape[1]))
         train_X_mins = train_X.min(axis=0)
         train_X_maxes = train_X.max(axis=0)
         
@@ -258,55 +264,97 @@ class CFQLModel(AdaptiveNeuroFuzzy):
         if verbose:
             print('Creating/updating the membership functions...')
         
+        start = time.time()
         self.antecedents = CLIP(train_X, dummy_Y, train_X_mins, train_X_maxes, 
                                 self.antecedents, alpha=self.alpha, beta=self.beta)
+        end = time.time()
+        start = time.time()
+        if verbose:
+            print('membership functions for the antecedents generated in %.2f seconds.' % (end - start))
         
         self.consequents = CLIP(dummy_Y, train_X, Y_mins, Y_maxes, self.consequents, 
                                 alpha=self.alpha, beta=self.beta)
-
+        end = time.time()
+        if verbose:
+            print('membership functions for the consequents generated in %.2f seconds.' % (end - start))
+        
+        if ecm:
+            if verbose:
+                print('Reducing the data observations to clusters using ECM...')
+            start = time.time()
+            clusters = ECM(train_X, [], Dthr)
+            if verbose:
+                print('%d clusters were found with ECM from %d observations...' % (len(clusters), train_X.shape[0]))
+            reduced_X = [cluster.center for cluster in clusters]
+            reduced_dummy_Y = dummy_Y[:len(reduced_X)]
+            end = time.time()
+            if verbose:
+                print('done; the ECM algorithm completed in %.2f seconds.' % (end - start))
+        else:
+            reduced_X = train_X
+            reduced_dummy_Y = dummy_Y
+            
         if verbose:
             print('Creating/updating the fuzzy logic rules...')
         start = time.time()
-        self.antecedents, self.consequents, self.rules, self.weights = rule_creation(train_X, dummy_Y,
+        self.antecedents, self.consequents, self.rules, self.weights = rule_creation(reduced_X, reduced_dummy_Y,
                                                                                      self.antecedents,
                                                                                      self.consequents,
                                                                                      self.rules,
                                                                                      self.weights,
-                                                                                     'SL')
+                                                                                     problem_type='SL',
+                                                                                     consistency_check=False)
         
         K = len(self.rules)
         end = time.time()
         if verbose:
             print('%d fuzzy logic rules created/updated in %.2f seconds.' % (K, end - start))
             
+        if verbose:
+            print('Building the initial Neuro-Fuzzy Network...')
+        start = time.time()
         self.import_existing(self.rules, self.weights, self.antecedents, self.consequents)
         self.orphaned_term_removal()
         self.preprocessing()
         self.update()
+        end = time.time()
+        if verbose:
+            print('done; built in %.2f seconds.' % (end - start))
         
-        o1 = self.input_layer(train_X)
-        o2 = self.condition_layer(o1)
-        o3 = self.rule_base_layer(o2, inference='product')
-        
-        mean_rule_activations = o3.mean(axis=0)
-        import matplotlib.pyplot as plt
-        plt.bar([x for x in range(len(mean_rule_activations))], mean_rule_activations)
-        plt.show()
-        
-        indices = np.where(mean_rule_activations > np.mean(mean_rule_activations))[0]
-        self.rules = [self.rules[index] for index in indices]
-        self.weights = [self.weights[index] for index in indices]
-        
-        self.import_existing(self.rules, self.weights, self.antecedents, self.consequents)
-        self.orphaned_term_removal()
-        self.preprocessing()
-        self.update()
+        if prune_rules:
+            if verbose:
+                print('Determining the average activation of each fuzzy logic rule on the training data...')
+            start = time.time()
+            o1 = self.input_layer(train_X)
+            o2 = self.condition_layer(o1)
+            o3 = self.rule_base_layer(o2, inference='product')
+            mean_rule_activations = o3.mean(axis=0)
+            end = time.time()
+            if verbose:
+                print('done; calculated in %.2f seconds.' % (end - start))
+            plt.bar([x for x in range(len(mean_rule_activations))], mean_rule_activations)
+            plt.show()
+
+            if verbose:
+                print('Removing weakly activated fuzzy logic rules...')
+            indices = np.where(mean_rule_activations > np.mean(mean_rule_activations))[0]
+            self.rules = [self.rules[index] for index in indices]
+            self.weights = [self.weights[index] for index in indices]
+            self.import_existing(self.rules, self.weights, self.antecedents, self.consequents)
+            self.orphaned_term_removal()
+            self.preprocessing()
+            self.update()
+            if verbose:
+                print('done; removal of fuzzy logic rules has been reflected in the Neuro-Fuzzy network.')
         
         # prepare the Q-table
         self.network = TabularNetwork(self.get_number_of_rules(),
                                  self.action_set_length)
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=self.learning_rate)
         
+        if verbose:
+            print('Transforming the trajectories to a compatible format...')
+        start = time.time()
         rule_weights = []
         transformed_trajectories = []
         for trajectory in trajectories:
@@ -325,25 +373,40 @@ class CFQLModel(AdaptiveNeuroFuzzy):
             next_rule_index = np.argmax(self.current_rule_activations)
             next_rule_index_weight = self.current_rule_activations[next_rule_index]
             transformed_trajectories.append((rule_index, action_index, reward, next_rule_index, done))
-            
+        end = time.time()
+        if verbose:
+            print('done; trajectories transformed in %.2f seconds.' % (end - start))
+        
+        if verbose:
+            print('Begin Offline [Tabular] Conservative Q-Learning...')
+        start = time.time()
         self.conservative_q_iteration(num_itrs=100, project_steps=50, cql_alpha=self.cql_alpha, sampled=True,
                                  training_dataset=transformed_trajectories, rule_weights=rule_weights)
+        end = time.time()
+        if verbose:
+            print('done; completed in %.2f seconds.' % (end - start))
         
         # APFRB sensitivity analysis
-        
-        l_ks = []
-        for k, _ in enumerate(self.rules):
-            print(k)
-            max_c_k = np.max(self.c_k(train_X, k))
-            l_ks.append(max_c_k)
-    
-        plt.bar([x for x in range(len(l_ks))], l_ks)
-        plt.show()
-        
-        m_k_c_k = np.median(self.f3, axis=0) * l_ks
-        
-        plt.bar([x for x in range(len(m_k_c_k))], m_k_c_k)
-        plt.show()
+        if apfrb_sensitivity_analysis:
+            if verbose:
+                print('Performing sensitivity analysis inspired by APFRB paper...')
+            start = time.time()
+            l_ks = []
+            for k, _ in enumerate(self.rules):
+                print(k)
+                max_c_k = np.max(self.c_k(train_X, k))
+                l_ks.append(max_c_k)
+            end = time.time()
+            if verbose:
+                print('done; completed in %.2f seconds.' % (end - start))
+            
+            plt.bar([x for x in range(len(l_ks))], l_ks)
+            plt.show()
+            
+            m_k_c_k = np.median(self.f3, axis=0) * l_ks
+            
+            plt.bar([x for x in range(len(m_k_c_k))], m_k_c_k)
+            plt.show()
         
         # disable learning and exploration
         

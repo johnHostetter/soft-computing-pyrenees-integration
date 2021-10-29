@@ -6,7 +6,10 @@ Created on Sun Oct 24 20:14:51 2021
 @author: john
 """
 
+import os
 import time
+import torch
+import random
 import itertools
 import numpy as np
 import pandas as pd
@@ -17,9 +20,14 @@ from functools import partial
 
 from clip import CLIP
 from fis import gaussian
-from lazypop import noise_criterion
 from constant import PROBLEM_FEATURES
 from policy_induction_problem import initial_target
+
+SEED = 0
+os.environ['PYTHONHASHSEED']=str(SEED)
+torch.manual_seed(SEED)
+random.seed(SEED)
+np.random.seed(SEED)
 
 # return the dataset as sample of traces: <student, s, a, r, done>
 def getTrace(filename, feature_list):
@@ -83,23 +91,6 @@ def undo_normalization(data_path, problem_id):
     print('normalization undone...')
     return raw_data
 
-def cluster_membership(X, membership_functions):
-    membership_degree = 1.0
-    for x, term in zip(X, membership_functions):
-        membership_degree = min(membership_degree, term(x))
-        # membership_degree *= term(x)
-    return membership_degree
-
-def make_cluster_membership_functions(membership_functions):
-    # cluster_membership_functions = []
-    clusters = []
-    for cluster_membership_function in itertools.product(*membership_functions):
-        cluster_membership_functions = []
-        for membership_function in cluster_membership_function:
-            cluster_membership_functions.append(partial(gaussian, center=membership_function['center'], sigma=membership_function['sigma']))
-        clusters.append(partial(cluster_membership, membership_functions=cluster_membership_functions))
-    return clusters
-
 def rule_creation(X, antecedents):
     # Wang and Mendel approach to fuzzy logic rule creation, but without the consequent portion
     start = time.time()
@@ -140,73 +131,12 @@ def rule_creation(X, antecedents):
                 weights.append(1.0)
     return rules, weights
 
+num_actions = 3
+policy_type = 'problem'
 file_name = 'features_all_prob_action_immediate_reward'
 data_path = 'training_data/nn_inferred_{}.csv'.format(file_name)
 
-# # feature selection using feature importance via RandomForestRegressor
-# raw_data = pd.read_csv(data_path)
-raw_data = undo_normalization(data_path, 'problem')
-
-# # https://stackoverflow.com/questions/49282049/remove-strongly-correlated-columns-from-dataframe
-# def trimm_correlated(df_in, threshold):
-#     df_corr = df_in.corr(method='pearson', min_periods=1)
-#     df_not_correlated = ~(df_corr.mask(np.tril(np.ones([len(df_corr)]*2, dtype=bool))).abs() > threshold).any()
-#     un_corr_idx = df_not_correlated.loc[df_not_correlated[df_not_correlated.index] == True].index
-#     df_out = df_in[un_corr_idx]
-#     return df_out
-
-# trimmed_df = trimm_correlated(raw_data, 0.9)
-
-trimmed_df = raw_data
-AVAILABLE_PROBLEM_FEATURES = list(set(PROBLEM_FEATURES).intersection(set(trimmed_df.columns)))
-X = trimmed_df[AVAILABLE_PROBLEM_FEATURES].values
-Y = trimmed_df['inferred_rew'].values
-
-# # https://pub.towardsai.net/pca-clearly-explained-when-why-how-to-use-it-and-feature-importance-a-guide-in-python-56b3da72d9d1
-# from sklearn.decomposition import PCA
-# from sklearn.preprocessing import StandardScaler
-
-# # Z-score the features
-# scaler = StandardScaler()
-# scaler.fit(X)
-# standardized_X = scaler.transform(X)
-# pca = PCA(.90) # estimate only 2 PCs
-# X_new = pca.fit_transform(standardized_X)
-# print(pca.explained_variance_ratio_)
-# print(pca.explained_variance_ratio_.sum())
-
-# # find the most important features
-# print(abs( pca.components_ ))
-
-# weighted_sum_of_importances = (pca.explained_variance_ratio_[:, np.newaxis] * abs(pca.components_)).sum(axis=0)
-# mean_importances = abs(pca.components_).mean(axis=0)
-
-# # get the top 10 features
-# # https://www.kite.com/python/answers/how-to-find-the-n-maximum-indices-of-a-numpy-array-in-python
-# n = 10
-# selected_features = []
-# indices = (-weighted_sum_of_importances).argsort()[:n]
-# for idx in indices:
-#     print(AVAILABLE_PROBLEM_FEATURES[idx])
-#     selected_features.append(AVAILABLE_PROBLEM_FEATURES[idx])
-
-# from sklearn.ensemble import RandomForestRegressor
-# model = RandomForestRegressor()
-# model.fit(X, Y)
-# # get importance
-# importance = model.feature_importances_
-# # summarize feature importance
-# for i,v in enumerate(importance):
-#  	print('Feature: %0d, Score: %.5f' % (i,v))
-# # plot feature importance
-# plt.bar([x for x in range(len(importance))], importance)
-# plt.show()
-# # get the indices of the n largest elements from a Numpy array
-# n = 12
-# ind = np.argpartition(importance, -n)[-n:]
-# selected_features = np.array(PROBLEM_FEATURES)[ind]
-# selected_features = PROBLEM_FEATURES[:4]
-
+raw_data = undo_normalization(data_path, policy_type)
 
 print('getting traces...')
 selected_features = PROBLEM_FEATURES
@@ -221,36 +151,90 @@ student_state = np.asarray(student_state)
 print('done.\n')
 
 X = student_state
-X_reduced = X
 
-# from sklearn.decomposition import PCA
-# # pca = PCA(n_components=10)
-# pca = PCA(.90)
-# principalComponents = pca.fit_transform(X)
-# X_reduced = principalComponents
+from cfql import CFQLModel
 
-# feature agglomeration and dimensionality reduction
-# from sklearn import cluster
-# agglo = cluster.FeatureAgglomeration(n_clusters=30)
-# agglo.fit(X)
-# X_reduced = agglo.transform(X)
+cfql = CFQLModel(alpha=0.6, beta=0.7, gamma=0.99, learning_rate=1e-2, ee_rate=0., action_set_length=num_actions)
+cfql.fit(X, traces, ecm=True, Dthr=0.125, prune_rules=False, apfrb_sensitivity_analysis=False,)
+print('q-table consequents')
+print(np.unique(np.argmax(cfql.q_table, axis=1), return_counts=True))
 
-print('generating antecedents...')
-antecedents = CLIP(X_reduced, X_reduced, 
-                   X_reduced.min(axis=0), X_reduced.max(axis=0), 
-                   terms=[], alpha=0.5, beta=0.7, theta=0.0)
-print('done.\n')
+actions = []
+predicted_q_values = []
+for x in X:
+    q_values = cfql.infer(x).tolist()
+    action = np.argmax(q_values)
+    predicted_q_values.append(q_values)
+    actions.append(action)
+    
+actions = np.array(actions)
+predicted_q_values = np.array(predicted_q_values)
 
-rules, weights = rule_creation(X_reduced, antecedents)
+print('actual distribution')
+print(np.unique(actions, return_counts=True))
 
-# keep only the rules that were generated by more than one data observation
-rule_indices = np.where(np.array(weights) > 3)[0]
-selected_rules = list(np.array(rules)[rule_indices])
-selected_weights = list(np.array(weights)[rule_indices])
+print('original distribution')
+original_actions = [trace[1] for trace in traces]
+print(np.unique(original_actions, return_counts=True))
 
-from nfqn import NeuroFuzzyQNetwork
+print('%.2f%% similarity.' % (100 * np.count_nonzero(np.array(actions) == np.array(original_actions)) / X.shape[0]))
 
-neuro_fuzzy = NeuroFuzzyQNetwork()
+columns = ['ps_Q_value', 'fwe_Q_value', 'we_Q_value']
+for idx in range(num_actions):
+    column_name = columns[idx]
+    raw_data[column_name] = predicted_q_values[:, idx]
+    
+raw_data.to_csv('./policy_output/{}_q_values.csv'.format(policy_type), sep=',')
+
+# storage = None
+# batch_size = 100
+# n_batches = int(np.round(X.shape[0]/batch_size))
+# for idx in range(n_batches):
+#     print('batch %s' % idx)
+#     batch_X = X[idx*batch_size:(idx+1)*batch_size]
+#     o1 = cfql.input_layer(batch_X)
+#     o2 = cfql.condition_layer(o1)
+#     o3 = cfql.rule_base_layer(o2, inference='product')
+#     if storage is None:
+#         storage = deepcopy(o3)
+#     else:
+#         storage = np.vstack((storage, deepcopy(o3)))
+    
+# max_rule_activations = np.mean(storage, axis=0)
+# # plt.bar([x for x in range(len(mean_rule_activations))], mean_rule_activations)
+# plt.plot(range(len(max_rule_activations)), sorted(max_rule_activations))
+# plt.show()
+
+# certainty_and_weights = np.array([(cfql.rules[idx]['CF'], cfql.weights[idx]) for idx in range(cfql.K)])
+# plt.scatter(certainty_and_weights[:,0], (certainty_and_weights[:,1] / X.shape[0]), s=0.5)
+# plt.show()
+
+# outlier1 = sorted(certainty_and_weights[:,0])[-1]
+# outlier2 = sorted(certainty_and_weights[:,0])[-2]
+
+# outlier1_idx = np.where(certainty_and_weights[:,0] == outlier1)[0]
+# certainty_and_weights = np.delete(certainty_and_weights, outlier1_idx, axis=0)
+# outlier2_idx = np.where(certainty_and_weights[:,0] == outlier2)[0]
+# certainty_and_weights = np.delete(certainty_and_weights, outlier2_idx, axis=0)
+# plt.scatter(certainty_and_weights[:,0], (certainty_and_weights[:,1] / X.shape[0]), s=0.5)
+# plt.show()
+
+# print('generating antecedents...')
+# antecedents = CLIP(X, X_reduced, 
+#                    X_reduced.min(axis=0), X_reduced.max(axis=0), 
+#                    terms=[], alpha=0.5, beta=0.7, theta=0.0)
+# print('done.\n')
+
+# rules, weights = rule_creation(X_reduced, antecedents)
+
+# # keep only the rules that were generated by more than one data observation
+# rule_indices = np.where(np.array(weights) > 3)[0]
+# selected_rules = list(np.array(rules)[rule_indices])
+# selected_weights = list(np.array(weights)[rule_indices])
+
+# from nfqn import NeuroFuzzyQNetwork
+
+# neuro_fuzzy = NeuroFuzzyQNetwork()
 
 # print('making fuzzy clusters...')
 # input_space_clusters = make_cluster_membership_functions(antecedents)

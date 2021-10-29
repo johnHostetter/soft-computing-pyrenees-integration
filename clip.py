@@ -112,7 +112,8 @@ def CLIP(X, Y, mins, maxes, terms=[], alpha=0.2, beta=0.6, theta=1e-8):
                     antecedents[p].append({'center':new_c, 'sigma':new_sigma, 'support':1})
     return antecedents
 
-def rule_creation(X, Y, antecedents, consequents, existing_rules=[], existing_weights=[], problem_type='SL'):
+def rule_creation(X, Y, antecedents, consequents, existing_rules=[], 
+                  existing_weights=[], problem_type='SL', consistency_check=True):
     start = time.time()
     rules = existing_rules
     weights = existing_weights
@@ -204,67 +205,68 @@ def rule_creation(X, Y, antecedents, consequents, existing_rules=[], existing_we
                 weights.append(1.0)
                 
     # check for consistency
-    all_antecedents = [rule['A'] for rule in rules]
-
-    repeated_rule_indices = set()
-    for k in range(len(rules)):
-        indices = np.where(np.all(all_antecedents == np.array(rules[k]['A']), axis=1))[0]
-        if len(indices) > 1: 
-            if len(repeated_rule_indices) == 0: # this can be combined with the following elif-statement
-                repeated_rule_indices.add(tuple(indices))
-            elif len(repeated_rule_indices) > 0: # this can be combined with the above if-statement
-                repeated_rule_indices.add(tuple(indices))
+    if consistency_check:
+        all_antecedents = [rule['A'] for rule in rules]
     
-    for indices in repeated_rule_indices:
-        # weights_to_compare = [rules[idx]['CF'] for idx in indices] # HyFIS approach to rule creation
-        weights_to_compare = [weights[idx] for idx in indices]
-        strongest_rule_index = indices[np.argmax(weights_to_compare)] # keep the rule with the greatest weight to it
-        for index in indices:
-            if index != strongest_rule_index:
-                rules[index] = None
-                weights[index] = None
-    rules = [rules[k] for k, rule in enumerate(rules) if rules[k] is not None]
-    weights = [weights[k] for k, weight in enumerate(weights) if weights[k] is not None]
-
-    # need to check that no antecedent/consequent terms are "orphaned"
+        repeated_rule_indices = set()
+        for k in range(len(rules)):
+            indices = np.where(np.all(all_antecedents == np.array(rules[k]['A']), axis=1))[0]
+            if len(indices) > 1: 
+                if len(repeated_rule_indices) == 0: # this can be combined with the following elif-statement
+                    repeated_rule_indices.add(tuple(indices))
+                elif len(repeated_rule_indices) > 0: # this can be combined with the above if-statement
+                    repeated_rule_indices.add(tuple(indices))
+        
+        for indices in repeated_rule_indices:
+            # weights_to_compare = [rules[idx]['CF'] for idx in indices] # HyFIS approach to rule creation
+            weights_to_compare = [weights[idx] for idx in indices]
+            strongest_rule_index = indices[np.argmax(weights_to_compare)] # keep the rule with the greatest weight to it
+            for index in indices:
+                if index != strongest_rule_index:
+                    rules[index] = None
+                    weights[index] = None
+        rules = [rules[k] for k, rule in enumerate(rules) if rules[k] is not None]
+        weights = [weights[k] for k, weight in enumerate(weights) if weights[k] is not None]
     
-    all_antecedents = [rule['A'] for rule in rules]
-    all_antecedents = np.array(all_antecedents)
-    for p in range(len(x)):
-        if len(antecedents[p]) == len(np.unique(all_antecedents[:,p])):
-            continue
-        else:
-            # orphaned antecedent term
-            indices_for_antecedents_that_are_used = set(all_antecedents[:,p])
-            updated_indices_to_map_to = list(range(len(indices_for_antecedents_that_are_used)))
-            antecedents[p] = [antecedents[p][index] for index in indices_for_antecedents_that_are_used]
-            
-            paired_indices = list(zip(indices_for_antecedents_that_are_used, updated_indices_to_map_to))
-            for index_pair in paired_indices: # the paired indices are sorted w.r.t. the original indices
-                original_index = index_pair[0] # so, when we updated the original index to its new index
-                new_index = index_pair[1] # we are guaranteed not to overwrite the last updated index
-                all_antecedents[:,p][all_antecedents[:,p] == original_index] = new_index
-            
-    all_consequents = [rule['C'] for rule in rules]
-    all_consequents = np.array(all_consequents)
-    for q in range(len(d)):
-        if len(consequents[q]) == len(np.unique(all_consequents[:,q])):
-            continue
-        else:
-            # orphaned consequent term
-            indices_for_consequents_that_are_used = set(all_consequents[:,q])
-            updated_indices_to_map_to = list(range(len(indices_for_consequents_that_are_used)))
-            consequents[q] = [consequents[q][index] for index in indices_for_consequents_that_are_used]
-            
-            paired_indices = list(zip(indices_for_consequents_that_are_used, updated_indices_to_map_to))
-            for index_pair in paired_indices: # the paired indices are sorted w.r.t. the original indices
-                original_index = index_pair[0] # so, when we updated the original index to its new index
-                new_index = index_pair[1] # we are guaranteed not to overwrite the last updated index
-                all_consequents[:,q][all_consequents[:,q] == original_index] = new_index
+        # need to check that no antecedent/consequent terms are "orphaned"
+        
+        all_antecedents = [rule['A'] for rule in rules]
+        all_antecedents = np.array(all_antecedents)
+        for p in range(len(x)):
+            if len(antecedents[p]) == len(np.unique(all_antecedents[:,p])):
+                continue
+            else:
+                # orphaned antecedent term
+                indices_for_antecedents_that_are_used = set(all_antecedents[:,p])
+                updated_indices_to_map_to = list(range(len(indices_for_antecedents_that_are_used)))
+                antecedents[p] = [antecedents[p][index] for index in indices_for_antecedents_that_are_used]
                 
-    # update the rules in case any orphaned terms occurred
-    for idx, rule in enumerate(rules):
-        rule['A'] = all_antecedents[idx]
-        rule['C'] = all_consequents[idx]
+                paired_indices = list(zip(indices_for_antecedents_that_are_used, updated_indices_to_map_to))
+                for index_pair in paired_indices: # the paired indices are sorted w.r.t. the original indices
+                    original_index = index_pair[0] # so, when we updated the original index to its new index
+                    new_index = index_pair[1] # we are guaranteed not to overwrite the last updated index
+                    all_antecedents[:,p][all_antecedents[:,p] == original_index] = new_index
+                
+        all_consequents = [rule['C'] for rule in rules]
+        all_consequents = np.array(all_consequents)
+        for q in range(len(d)):
+            if len(consequents[q]) == len(np.unique(all_consequents[:,q])):
+                continue
+            else:
+                # orphaned consequent term
+                indices_for_consequents_that_are_used = set(all_consequents[:,q])
+                updated_indices_to_map_to = list(range(len(indices_for_consequents_that_are_used)))
+                consequents[q] = [consequents[q][index] for index in indices_for_consequents_that_are_used]
+                
+                paired_indices = list(zip(indices_for_consequents_that_are_used, updated_indices_to_map_to))
+                for index_pair in paired_indices: # the paired indices are sorted w.r.t. the original indices
+                    original_index = index_pair[0] # so, when we updated the original index to its new index
+                    new_index = index_pair[1] # we are guaranteed not to overwrite the last updated index
+                    all_consequents[:,q][all_consequents[:,q] == original_index] = new_index
+                    
+        # update the rules in case any orphaned terms occurred
+        for idx, rule in enumerate(rules):
+            rule['A'] = all_antecedents[idx]
+            rule['C'] = all_consequents[idx]
 
     return antecedents, consequents, rules, weights
