@@ -2,17 +2,17 @@
 
 The following scripts are of primary interest:
 
-  problem_level_policy_induction.py
-  step_level_policy_induction.py
+  problem_level_policy_induction.py  
+  step_level_policy_induction.py  
 
 The first script will induce a problem-level policy for Pyrenees.
 The second script will induce a separate step-level policy for each problem ID in Pyrenees.
 
 The 'constant.py' script file contains a few constants of interest. Specifically, only the following are used:
 
-  PROBLEM_LIST
-  PROBLEM_FEATURES
-  STEP_FEATURES
+  PROBLEM_LIST  
+  PROBLEM_FEATURES  
+  STEP_FEATURES  
 
 The 'PROBLEM_LIST' is a list that contains the problem IDs stored as strings. Some problem IDs have no pedagogical intervention,
 and as such, there will be no decision information on these, as every student receives the same intervention (e.g. the first "problem" is always worked-example for every student). As such, there are some try-catch blocks in the code meant to handle this scenario when the provided problem ID has no corresponding decision information.
@@ -25,11 +25,11 @@ The other constants found in the script file such as 'MEDIAN_THRESHOLD_LTR' or '
 
 The 'preprocessing.py' script file contains a few functions of interest. Specifically, the following:
 
-  undo_normalization
-  encode_action
-  policy_features
-  inferred_reward_constant
-  build_traces
+  undo_normalization  
+  encode_action  
+  policy_features  
+  inferred_reward_constant  
+  build_traces  
 
 The 'undo_normalization' function will take the provided data, and reverse any normalization that has been applied to it. However, it does not check that the data has been normalized. This function exists since the original training data provided by Song was normalized, and in a prior study, the normalization had to be undone.
 
@@ -41,19 +41,19 @@ The 'inferred_reward_constant' function is a simple function that exists in orde
 
 The 'build_traces' function returns the provided data as a list where each element has the form:
 
-  (state, action, reward, next state, done)
+  (state, action, reward, next state, done)  
 
 This representation is required for the reinforcement learning algorithms to be applied.
 
 The 'fuzzy' directory is a [Git submodule](https://git-scm.com/docs/git-submodule). To add a Git submodule (at the time of writing), use the following command:
 
-  git submodule add [remote url]
+  git submodule add [remote url]  
 
 where [remote url] is the URL to your remote Git/GitHub repository.
 
 Git submodules have their HEAD pointer frozen to when they were added, so they will not be automatically be updated if the remote repository receives updates. To update the Git submodule(s), the submodule(s) can be updated in a testing branch with the following command:
 
-  git submodule update
+  git submodule update  
 
 If nothing is negatively affected, the changes/fixes can then be merged to the main branch.
 
