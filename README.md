@@ -8,19 +8,19 @@ Repository Name: <strong>pyrenees_soft_integration</strong>
 
 <p>First, add this GitHub repository (<code>pyrenees_soft_integration</code>) as a Git submodule to the Pyrenees GitHub repository (<code>Pyrenees-python</code> at the time of writing). Specifically, it should be added in the following path:<code>Pyrenees-python/app/</code></p>
 
-<p>To add this GitHub repository as a Git submodule, while in a terminal at the above path, type:
+To add this GitHub repository as a Git submodule, while in a terminal at the above path, type:
 <code>git submodule add [remote url]</code>
-where [remote url] is this GitHub repository's [HTTPS link](https://github.ncsu.edu/jwhostet/pyrenees_soft_integration.git).</p>
+where [remote url] is this GitHub repository's [HTTPS link](https://github.ncsu.edu/jwhostet/pyrenees_soft_integration.git).
 
 <p>There should now be a directory located at: <code>Pyrenees-python/app/pyrenees_soft_integration</code>. However, the soft computing algorithms are not yet ready to be used. Specifically, you will encounter import errors from the files contained within the <code>soft_computing</code> submodule (e.g. the files in the <code>fuzzy</code> directory).</p>
 
-<p>To finish the setup and integration process, we need to do consult the [setup procedure](https://github.ncsu.edu/jwhostet/soft_computing) outlined in the <code>soft_computing</code> GitHub repository. However, the most relevant instructions are included here. Particularly, we need to create a Python virtual environment, or activate an existing Python virtual environment. Then, from within the <code>soft_computing</code> directory, we follow the pip installation steps, but only need to run:<br>
+To finish the setup and integration process, we need to do consult the [setup procedure](https://github.ncsu.edu/jwhostet/soft_computing) outlined in the <code>soft_computing</code> GitHub repository. However, the most relevant instructions are included here. Particularly, we need to create a Python virtual environment, or activate an existing Python virtual environment. Then, from within the <code>soft_computing</code> directory, we follow the pip installation steps, but only need to run:<br>
 <code>pip install -e .</code>
 
 <p>The code should now be ready to use. We can easily import any code from this GitHub repository (<code>pyrenees_soft_integration</code>), and its subdirectories, into <code>Pyrenees-python/app/routes.py</code> (which is where pedagogical decision making occurs), by following the same convention that is used for libraries such as Numpy or Pandas (e.g. <code>import numpy as np</code>).</p>
 
 ### Troubleshooting
-<p>Upon following the above setup procedure, it is possible one may need to conduct troubleshooting. Particularly, one issue I have encountered in adding this GitHub repository to the <code>Pyrenees-python</code> project is that the submodules contained within this project (<code>pyrenees_soft_integration</code>) would have no files (i.e. the <code>soft_computing</code> folder was empty). This requires the following three-step fix:<br>
+Upon following the above setup procedure, it is possible one may need to conduct troubleshooting. Particularly, one [issue](https://stackoverflow.com/questions/11420701/git-submodule-is-returning-blank) I have encountered in adding this GitHub repository to the <code>Pyrenees-python</code> project is that the submodules contained within this project (<code>pyrenees_soft_integration</code>) would have no files (i.e. the <code>soft_computing</code> folder was empty). This requires the following three-step fix:<br>
 1. Open a terminal in this root directory (i.e. <code>ls</code> in the terminal will show the <code>soft_computing</code> folder). <br>
 2. In the terminal, populate the <code>.git</code> config by typing:<br>
 <code>git submodule init</code><br>
@@ -71,11 +71,11 @@ The following scripts are of primary interest:
 
 <p>This representation is required for the reinforcement learning algorithms to be applied.</p>
 
-<p>The <code>soft_computing</code> directory is a [Git submodule](https://git-scm.com/docs/git-submodule). To add a Git submodule (at the time of writing), use the following command:
+The <code>soft_computing</code> directory is a [Git submodule](https://git-scm.com/docs/git-submodule). To add a Git submodule (at the time of writing), use the following command:
 
   <code>git submodule add [remote url]</code>
 
-where <code>[remote url]</code> is the URL to your remote GitHub repository.</p>
+where <code>[remote url]</code> is the URL to your remote GitHub repository.
 
 <p>Git submodules have their HEAD pointer frozen to when they were added, so they will not be automatically be updated if the remote repository receives updates. To update the Git submodule(s), the submodule(s) can be updated in a testing branch with the following command:
 
@@ -83,4 +83,4 @@ where <code>[remote url]</code> is the URL to your remote GitHub repository.</p>
 
 If nothing is negatively affected, the changes/fixes can then be merged to the main branch.</p>
 
-<p>For the original post advocating for Git submodules, see [here](https://stackoverflow.com/questions/45557791/suggestion-on-import-python-module-from-another-github-project).</p>
+For the original post advocating for Git submodules, see [here](https://stackoverflow.com/questions/45557791/suggestion-on-import-python-module-from-another-github-project).
