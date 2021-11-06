@@ -19,6 +19,14 @@ where [remote url] is this GitHub repository's [HTTPS link](https://github.ncsu.
 
 <p>The code should now be ready to use. We can easily import any code from this GitHub repository (<code>pyrenees_soft_integration</code>), and its subdirectories, into <code>Pyrenees-python/app/routes.py</code> (which is where pedagogical decision making occurs), by following the same convention that is used for libraries such as Numpy or Pandas (e.g. <code>import numpy as np</code>).</p>
 
+### Troubleshooting
+<p>Upon following the above setup procedure, it is possible one may need to conduct troubleshooting. Particularly, one issue I have encountered in adding this GitHub repository to the <code>Pyrenees-python</code> project is that the submodules contained within this project (<code>pyrenees_soft_integration</code>) would have no files (i.e. the <code>soft_computing</code> folder was empty). This requires the following three-step fix:<br>
+1. Open a terminal in this root directory (i.e. <code>ls</code> in the terminal will show the <code>soft_computing</code> folder). <br>
+2. In the terminal, populate the <code>.git</code> config by typing:<br>
+<code>git submodule init</code><br>
+3. Finally, to populate the submodules with the code, type:<br>
+<code>git submodule update --recursive</code>
+
 ### Explanation of scripts and files
 The following scripts are of primary interest:
 
