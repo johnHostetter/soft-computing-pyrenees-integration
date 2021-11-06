@@ -45,7 +45,7 @@ The 'build_traces' function returns the provided data as a list where each eleme
 
 This representation is required for the reinforcement learning algorithms to be applied.
 
-The 'fuzzy' directory is a [Git submodule](https://git-scm.com/docs/git-submodule). To add a Git submodule (at the time of writing), use the following command:
+The 'soft_computing' directory is a [Git submodule](https://git-scm.com/docs/git-submodule). To add a Git submodule (at the time of writing), use the following command:
 
   git submodule add [remote url]  
 

@@ -1,1 +1,4 @@
 
+[submodule "soft_computing"]
+	path = soft_computing
+	url = https://github.ncsu.edu/jwhostet/soft_computing.git
