@@ -11,7 +11,6 @@ import sys
 import torch
 import random
 import numpy as np
-import pandas as pd
 
 # get the current working directory, but only keep the parent folder (which is 'fuzzy')
 path = os.getcwd() + '/fuzzy'
@@ -78,7 +77,14 @@ for problem_id in PROBLEM_LIST:
         }
     cfql = CFQLModel(clip_params, fis_params, cql_params)
     cfql.fit(X, traces, ecm=True, Dthr=0.125, prune_rules=False, apfrb_sensitivity_analysis=False, verbose=True)
-    print('q-table consequents')
+    try:
+        cfql.save('./models/{}/{}'.format(policy_type, policy_type))
+    except FileNotFoundError:
+        # the directory does not exist, so make the directory, then try again
+        os.makedirs('./models/{}'.format(policy_type))
+        cfql.save('./models/{}/{}'.format(policy_type, policy_type))
+        
+    print('Q-table consequents')
     print(np.unique(np.argmax(cfql.q_table, axis=1), return_counts=True))
     
     actions = []
@@ -96,11 +102,11 @@ for problem_id in PROBLEM_LIST:
     
     print('distribution of estimated actions')
     print(np.unique(actions, return_counts=True))
-    
+    print()
     print('distribution of original actions')
     original_actions = [trace[1] for trace in traces]
     print(np.unique(original_actions, return_counts=True))
-    
+    print()
     print('%.2f%% similarity.' % (100 * np.count_nonzero(np.array(actions) == np.array(original_actions)) / X.shape[0]))
     
     columns = ['elicit_Q_value', 'tell_Q_value']
