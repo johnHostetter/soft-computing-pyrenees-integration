@@ -15,7 +15,7 @@ import pandas as pd
 
 from pathlib import Path
 
-from constant import PROBLEM_LIST
+from constant import PROBLEM_LIST, STEP_FEATURES
 from fuzzy.reinforcement.cfql import CFQLModel
 
 GLOBAL_MODEL = None
@@ -55,7 +55,8 @@ class FuzzyPedagogicalAgent(object):
                 'learning_rate':0.0, 'iterations':0 ,'action_set_length':action_set_length
                 }
             try:
-                self.lookup_table[problem_id] = CFQLModel(clip_params, fis_params, cql_params).load(model_file_name)
+                self.lookup_table[problem_id] = CFQLModel(clip_params, fis_params, cql_params)
+                self.lookup_table[problem_id].load(model_file_name)
                 normalization_df = pd.read_csv(normalization_vector_path)
                 self.min_vectors[problem_id] = normalization_df.min_val.values.astype(np.float64)
                 self.max_vectors[problem_id] = normalization_df.max_val.values.astype(np.float64)
@@ -65,10 +66,15 @@ class FuzzyPedagogicalAgent(object):
     def predict(self, decision_level, problem_id, z, normalized=False):
         # z will be unnormalized, raw data observation, meant for true integration with Pyrenees
         if not normalized:
-            norm_z = (z - self.min_vectors[decision_level]) / (self.max_vectors[decision_level] - self.min_vectors[decision_level])
+            norm_z = (z - self.min_vectors[problem_id]) / (self.max_vectors[problem_id] - self.min_vectors[problem_id])
         else:
             norm_z = z
         model = self.lookup_table[problem_id]
+
+        # select only the features that are applicable for this policy
+        filter = (self.max_vectors[problem_id] != self.min_vectors[problem_id])
+        norm_z = np.take(norm_z, np.where(filter)[0], axis=0)
+
         action = model.get_action(norm_z)
         return action
 
@@ -89,7 +95,7 @@ def fuzzy_decision(decision_level, problem_id, input_features):
     try:
         model = load_model()
         if len(input_features) == 130 or len(input_features) == 142:
-            raw_prediction = model.predict(decision_level, problem_id, input_features)
+            raw_prediction = model.predict(decision_level, problem_id, np.array(input_features.values.tolist()), normalized=False)
             decision = logic_mapping(decision_level, problem_id, raw_prediction)
             decision_info['decision'] = decision
             decision_info['Qvalues'] = str(raw_prediction)
