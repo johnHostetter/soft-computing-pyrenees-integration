@@ -40,13 +40,18 @@ for problem_id in PROBLEM_LIST:
     data_path = 'training_data/nn_inferred_{}.csv'.format(file_name)
 
     try:
-        raw_data = undo_normalization(data_path, policy_type)
+        raw_data, max_vector, min_vector = undo_normalization(data_path, policy_type)
+
+        # for step-level policies, some features have the same value for min and max, they need to be removed
+        filter = (max_vector != min_vector)
+        # print(list(compress(STEP_FEATURES, filter)))
+
     except FileNotFoundError: # this problem has no pedagogical agent intervention
         print('File not found: %s' % data_path)
         continue
 
     print('getting traces...')
-    traces, feature_len = build_traces(data_path, policy_type)
+    traces, feature_len = build_traces(data_path, policy_type, filter)
     print('done.\n')
 
     print('formatting data...')
@@ -79,31 +84,31 @@ for problem_id in PROBLEM_LIST:
     print('Q-table consequents')
     print(np.unique(np.argmax(cfql.q_table, axis=1), return_counts=True))
 
-    actions = []
-    predicted_q_values = []
-    for x in X:
-        q_values = cfql.infer(x).tolist()
-        action = np.argmax(q_values)
-        predicted_q_values.append(q_values)
-        actions.append(action)
-
-    actions = np.array(actions)
-    predicted_q_values = np.array(predicted_q_values)
+    # actions = []
+    # predicted_q_values = []
+    # for x in X:
+    #     q_values = cfql.infer(x).tolist()
+    #     action = np.argmax(q_values)
+    #     predicted_q_values.append(q_values)
+    #     actions.append(action)
+    # 
+    # actions = np.array(actions)
+    # predicted_q_values = np.array(predicted_q_values)
 
     """ --- End of Conservative Fuzzy Rule-Based Q-Learning Code --- """
 
-    print('distribution of estimated actions')
-    print(np.unique(actions, return_counts=True))
-    print()
-    print('distribution of original actions')
-    original_actions = [trace[1] for trace in traces]
-    print(np.unique(original_actions, return_counts=True))
-    print()
-    print('%.2f%% similarity.' % (100 * np.count_nonzero(np.array(actions) == np.array(original_actions)) / X.shape[0]))
-
-    columns = ['elicit_Q_value', 'tell_Q_value']
-    for idx in range(num_actions):
-        column_name = columns[idx]
-        raw_data[column_name] = predicted_q_values[:, idx]
-
-    raw_data.to_csv('./policy_output/{}_q_values.csv'.format(policy_type), sep=',')
+    # print('distribution of estimated actions')
+    # print(np.unique(actions, return_counts=True))
+    # print()
+    # print('distribution of original actions')
+    # original_actions = [trace[1] for trace in traces]
+    # print(np.unique(original_actions, return_counts=True))
+    # print()
+    # print('%.2f%% similarity.' % (100 * np.count_nonzero(np.array(actions) == np.array(original_actions)) / X.shape[0]))
+    #
+    # columns = ['elicit_Q_value', 'tell_Q_value']
+    # for idx in range(num_actions):
+    #     column_name = columns[idx]
+    #     raw_data[column_name] = predicted_q_values[:, idx]
+    #
+    # raw_data.to_csv('./policy_output/{}_q_values.csv'.format(policy_type), sep=',')

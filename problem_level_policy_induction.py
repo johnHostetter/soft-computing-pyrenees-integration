@@ -37,7 +37,7 @@ policy_type = 'problem'
 file_name = 'features_all_prob_action_immediate_reward'
 data_path = 'training_data/nn_inferred_{}.csv'.format(file_name)
 
-raw_data = undo_normalization(data_path, policy_type)
+raw_data, _, _ = undo_normalization(data_path, policy_type)
 
 print('getting traces...')
 traces, feature_len = build_traces(data_path, policy_type)
