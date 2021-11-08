@@ -15,11 +15,13 @@ import pandas as pd
 
 from pathlib import Path
 
-from constant import PROBLEM_LIST, STEP_FEATURES
 from fuzzy.reinforcement.cfql import CFQLModel
 
 GLOBAL_MODEL = None
 SYS_PATH_TO_THIS_FILE_PARENT = str(Path(__file__).parent.absolute())
+sys.path.append(SYS_PATH_TO_THIS_FILE_PARENT)
+
+from app.pyrenees_soft_integration.constant import PROBLEM_LIST, STEP_FEATURES
 
 class FuzzyPedagogicalAgent(object):
     def __init__(self):
@@ -55,11 +57,19 @@ class FuzzyPedagogicalAgent(object):
                 'learning_rate':0.0, 'iterations':0 ,'action_set_length':action_set_length
                 }
             try:
+                # abstract problem ID type
                 self.lookup_table[problem_id] = CFQLModel(clip_params, fis_params, cql_params)
                 self.lookup_table[problem_id].load(model_file_name)
                 normalization_df = pd.read_csv(normalization_vector_path)
                 self.min_vectors[problem_id] = normalization_df.min_val.values.astype(np.float64)
                 self.max_vectors[problem_id] = normalization_df.max_val.values.astype(np.float64)
+
+                # word problem ID type
+                self.lookup_table[problem_id+'w'] = CFQLModel(clip_params, fis_params, cql_params)
+                self.lookup_table[problem_id+'w'].load(model_file_name)
+                normalization_df = pd.read_csv(normalization_vector_path)
+                self.min_vectors[problem_id+'w'] = normalization_df.min_val.values.astype(np.float64)
+                self.max_vectors[problem_id+'w'] = normalization_df.max_val.values.astype(np.float64)
             except FileNotFoundError:
                 continue # this is assumed to be a problem_id where there is no associated pedagogical decision making (e.g. ex222)
 
@@ -92,10 +102,11 @@ def logic_mapping(decision_level, problem_id, raw_prediction):
 
 def fuzzy_decision(decision_level, problem_id, input_features):
     decision_info = {'decision': 'step_decision', 'Qvalues': '-1', 'policy': 'fcql'}
-    try:
+    #try:
+    if True:
         model = load_model()
         if len(input_features) == 130 or len(input_features) == 142:
-            raw_prediction = model.predict(decision_level, problem_id, np.array(input_features.values.tolist()), normalized=False)
+            raw_prediction = model.predict(decision_level, problem_id, np.array(input_features), normalized=False)
             decision = logic_mapping(decision_level, problem_id, raw_prediction)
             decision_info['decision'] = decision
             decision_info['Qvalues'] = str(raw_prediction)
@@ -103,5 +114,5 @@ def fuzzy_decision(decision_level, problem_id, input_features):
         else:
             decision_info['Qvalues'] = '-2' # default to FWE with Qvalues as -2 to represent length of z was violated
             return decision_info
-    except Exception:
+    #except Exception:
         return decision_info # default to FWE with Qvalues value as -1 to represent exception thrown
