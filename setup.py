@@ -15,12 +15,8 @@ import pandas as pd
 
 from pathlib import Path
 
-# get the current working directory, and add the soft_computing Git submodule to the system path
-path = os.getcwd() + '/soft_computing'
-sys.path.append(path)
-
 from constant import PROBLEM_LIST
-from soft_computing.fuzzy.reinforcement.cfql import CFQLModel
+from fuzzy.reinforcement.cfql import CFQLModel
 
 GLOBAL_MODEL = None
 SYS_PATH_TO_THIS_FILE_PARENT = str(Path(__file__).parent.absolute())
