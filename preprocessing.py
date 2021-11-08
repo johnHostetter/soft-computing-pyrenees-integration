@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from copy import deepcopy
+from itertools import compress
 
 from constant import PROBLEM_FEATURES, STEP_FEATURES
 
@@ -45,15 +46,15 @@ def undo_normalization(data_path, policy_type):
     min_vector = df.min_val.values.astype(np.float64)
     max_vector = df.max_val.values.astype(np.float64)
     raw_data = deepcopy(normalized_data)
-    
+
     for feature in df.feat.values:
         row = df[df['feat'] == feature]
         max_val = row['max_val'].values[0]
         min_val = row['min_val'].values[0]
         raw_data[feature] = (raw_data[feature] * (max_val - min_val)) + min_val
-    
+
     print('normalization undone...')
-    return raw_data
+    return raw_data, max_vector, min_vector
 
 def encode_action(policy_type, action_type):
     """
@@ -75,12 +76,12 @@ def encode_action(policy_type, action_type):
     -------
     action : int
         The integer representation of the action taken.
-        
+
         For problem-level policy:
             case 0: problem-solving (PS)
             case 1: faded-worked-example (FWE)
             case 2: worked-example (WE)
-            
+
         For step-level policy:
             case 0: elicit
             case 1: tell
@@ -100,9 +101,9 @@ def encode_action(policy_type, action_type):
             action = 1
     return action
 
-def policy_features(policy_type):
+def policy_features(policy_type, filter=None):
     """
-    Depending on the policy that is being induced, retrieve the features that are 
+    Depending on the policy that is being induced, retrieve the features that are
     relevant to the decision-level.
 
     Parameters
@@ -113,6 +114,10 @@ def policy_features(policy_type):
         will encode the 'action_type' argument as it would if it were for a step-level policy.
         This is done because the 'policy_type' argument when inducing a step-level policy, is
         the problem ID that the step-level policy is meant to be used on (e.g. 'exc137' or 'ex132a').
+    filter : list, optional
+        The 'filter' argument is a list of booleans, where 'True' at the i'th index indicates that
+        the i'th feature should be kept for this 'policy_type'. If no 'filter' argument is provided,
+        then no features are selected. The default is None.
 
     Returns
     -------
@@ -121,14 +126,20 @@ def policy_features(policy_type):
 
     """
     if policy_type == 'problem':
-        return PROBLEM_FEATURES
+        if filter is None:
+            return PROBLEM_FEATURES
+        else:
+            return list(compress(PROBLEM_FEATURES, filter))
     else:
-        return STEP_FEATURES
+        if filter is None:
+            return STEP_FEATURES
+        else:
+            return list(compress(STEP_FEATURES, filter))
 
 def inferred_reward_constant(policy_type):
     """
     Depending on the policy that is being induced, the inferred reward from InferNet
-    is multiplied by a different constant. This was done in Song's original 
+    is multiplied by a different constant. This was done in Song's original
     Critical HRL policy induction.
 
     Parameters
@@ -152,10 +163,10 @@ def inferred_reward_constant(policy_type):
         return 100
 
 # return the dataset as sample of traces: <student, s, a, r, done>
-def build_traces(filename, policy_type):
+def build_traces(filename, policy_type, filter=None):
     """
     Return the dataset as a list of traces in the format of:
-        
+
         (state, action, reward, next state, done)
 
     Parameters
@@ -168,7 +179,11 @@ def build_traces(filename, policy_type):
         will encode the 'action_type' argument as it would if it were for a step-level policy.
         This is done because the 'policy_type' argument when inducing a step-level policy, is
         the problem ID that the step-level policy is meant to be used on (e.g. 'exc137' or 'ex132a').
-        
+    filter : list, optional
+        The 'filter' argument is a list of booleans, where 'True' at the i'th index indicates that
+        the i'th feature should be kept for this 'policy_type'. If no 'filter' argument is provided,
+        then no features are selected. The default is None.
+
     Returns
     -------
     traces : list
@@ -179,11 +194,11 @@ def build_traces(filename, policy_type):
 
     """
     raw_data = pd.read_csv(filename)
-    feature_list = policy_features(policy_type)
+    feature_list = policy_features(policy_type, filter)
     number_of_features = len(feature_list)
     traces = []
     student_list = list(raw_data['userID'].unique())
-    
+
     for student in student_list:
         student_data = raw_data.loc[raw_data['userID'] == student,]
         row_index = student_data.index.tolist()
@@ -194,7 +209,7 @@ def build_traces(filename, policy_type):
             action = encode_action(policy_type, action_type)
             reward = student_data.loc[row_index[i], 'inferred_rew'] * inferred_reward_constant(policy_type)
             done = False
-            
+
             if (i == len(row_index) - 1):  # the last row is terminal state.
                 done = True
                 state2 = np.zeros(number_of_features)
