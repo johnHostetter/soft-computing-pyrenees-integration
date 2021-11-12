@@ -34,7 +34,9 @@ torch.manual_seed(GLOBAL_SEED)
 """ --- End of Reproducibility Code --- """
 
 num_actions = 2
-for problem_id in PROBLEM_LIST:
+thresholds = {'exc137':0.09, 'ex132a':0.09, 'ex132':0.18, 'ex152a':0.12, 'ex152b':0.18, 'ex152':0.09, 'ex212':0.18, 'ex242':0.18, 'ex252a':0.18, 'ex252':0.09}
+for problem_id in PROBLEM_LIST[3:]:
+    print(problem_id)
     policy_type = problem_id # (e.g. 'ex252')
     file_name = 'features_all_{}'.format(policy_type)
     data_path = 'training_data/nn_inferred_{}.csv'.format(file_name)
@@ -65,15 +67,15 @@ for problem_id in PROBLEM_LIST:
 
     """ --- Start of Conservative Fuzzy Rule-Based Q-Learning Code --- """
 
-    clip_params = {'alpha':0.6, 'beta':0.7}
+    clip_params = {'alpha':0.3, 'beta':0.7}
     fis_params = {'inference_engine':'product'}
     # note this alpha for CQL is different than CLIP's alpha
     cql_params = {
-        'gamma':0.99, 'alpha':0.1, 'batch_size':1028, 'batches':50,
+        'gamma':0.99, 'alpha':0.1, 'batch_size':128, 'batches':50,
         'learning_rate':1e-2, 'iterations':100 ,'action_set_length':num_actions
         }
     cfql = CFQLModel(clip_params, fis_params, cql_params)
-    cfql.fit(X, traces, ecm=True, Dthr=0.125, prune_rules=False, apfrb_sensitivity_analysis=False, verbose=True)
+    cfql.fit(X, traces, ecm=True, Dthr=thresholds[problem_id], prune_rules=False, apfrb_sensitivity_analysis=False, verbose=True)
     try:
         cfql.save('./models/{}/{}'.format(policy_type, policy_type))
     except FileNotFoundError:
@@ -81,9 +83,9 @@ for problem_id in PROBLEM_LIST:
         os.makedirs('./models/{}'.format(policy_type))
         cfql.save('./models/{}/{}'.format(policy_type, policy_type))
 
-    print('Q-table consequents')
-    print(np.unique(np.argmax(cfql.q_table, axis=1), return_counts=True))
-
+    # print('Q-table consequents')
+    # print(np.unique(np.argmax(cfql.q_table, axis=1), return_counts=True))
+    #
     # actions = []
     # predicted_q_values = []
     # for x in X:
@@ -91,12 +93,12 @@ for problem_id in PROBLEM_LIST:
     #     action = np.argmax(q_values)
     #     predicted_q_values.append(q_values)
     #     actions.append(action)
-    # 
+    #
     # actions = np.array(actions)
     # predicted_q_values = np.array(predicted_q_values)
-
-    """ --- End of Conservative Fuzzy Rule-Based Q-Learning Code --- """
-
+    #
+    # """ --- End of Conservative Fuzzy Rule-Based Q-Learning Code --- """
+    #
     # print('distribution of estimated actions')
     # print(np.unique(actions, return_counts=True))
     # print()

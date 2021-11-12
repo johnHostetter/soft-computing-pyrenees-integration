@@ -54,15 +54,15 @@ X = student_state
 
 """ --- Start of Conservative Fuzzy Rule-Based Q-Learning Code --- """
 
-clip_params = {'alpha':0.6, 'beta':0.7}
+clip_params = {'alpha':0.3, 'beta':0.7}
 fis_params = {'inference_engine':'product'}
 # note this alpha for CQL is different than CLIP's alpha
 cql_params = {
-    'gamma':0.99, 'alpha':0.1, 'batch_size':1028, 'batches':50,
+    'gamma':0.99, 'alpha':0.1, 'batch_size':128, 'batches':50,
     'learning_rate':1e-2, 'iterations':100 ,'action_set_length':num_actions
     }
 cfql = CFQLModel(clip_params, fis_params, cql_params)
-cfql.fit(X, traces, ecm=True, Dthr=0.125, prune_rules=False, apfrb_sensitivity_analysis=False, verbose=True)
+cfql.fit(X, traces, ecm=True, Dthr=0.08, prune_rules=False, apfrb_sensitivity_analysis=False, verbose=True)
 try:
     cfql.save('./models/{}/{}'.format(policy_type, policy_type))
 except FileNotFoundError:
