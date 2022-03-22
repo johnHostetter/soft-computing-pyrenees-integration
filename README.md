@@ -27,6 +27,20 @@ Upon following the above setup procedure, it is possible one may need to conduct
 3. Finally, to populate the submodules with the code, type:<br>
 <code>git submodule update --recursive</code>
 
+In the event you need to [remove a submodule](https://gist.github.com/myusuf3/7f645819ded92bda6677) from this repository, follow these steps:
+1. Delete the relevant section from the .gitmodules file.
+2. Stage the .gitmodules changes:<br>
+<code>git add .gitmodules</code>
+4. Delete the relevant section from .git/config
+5. Run (with no trailing slash):<br>
+<code>git rm --cached path_to_submodule</code>
+6. Run (with no trailing slash):<br>
+<code>rm -rf .git/modules/path_to_submodule</code>
+7. Commit:<br>
+<code>git commit -m "Removed submodule"</code>
+8. Delete the now untracked submodule files:<br>
+<code>rm -rf path_to_submodule</code>
+
 ### Explanation of scripts and files
 The following scripts are of primary interest:
 
