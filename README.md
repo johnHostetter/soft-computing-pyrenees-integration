@@ -41,6 +41,17 @@ In the event you need to [remove a submodule](https://gist.github.com/myusuf3/7f
 8. Delete the now untracked submodule files:<br>
 <code>rm -rf path_to_submodule</code>
 
+If you have [changes made to the submodule you would like to receive](https://stackoverflow.com/questions/5828324/update-git-submodule-to-latest-commit-on-origin) (i.e., new code available at origin repository), refer to the following git command:<br>
+<code>git submodule foreach git pull origin master</code>
+
+However, if you need to reset the git submodules, refer to [this](https://www.systutorials.com/how-to-reset-all-submodules-in-git/). For convenience, here is Method 1:<br>
+<code>git submodule foreach --recursive git reset --hard</code><br>
+and if that doesn't work, here are the commands for Method 2:<br>
+<code>git submodule deinit -f .</code><br>
+<code>git submodule update --init --recursive</code>
+
+[This GitHub blog about working with submodules](https://github.blog/2016-02-01-working-with-submodules/) is a nice resource about submodules.
+
 ### Explanation of scripts and files
 The following scripts are of primary interest:
 
