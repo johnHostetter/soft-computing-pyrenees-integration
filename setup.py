@@ -21,7 +21,10 @@ GLOBAL_MODEL = None
 SYS_PATH_TO_THIS_FILE_PARENT = str(Path(__file__).parent.absolute())
 sys.path.append(SYS_PATH_TO_THIS_FILE_PARENT)
 
-from app.pyrenees_soft_integration.constant import PROBLEM_LIST, STEP_FEATURES
+try:  # meant for testing the connection between this library of code on the server
+    from app.pyrenees_soft_integration.constant import PROBLEM_LIST, STEP_FEATURES
+except ModuleNotFoundError:  # meant for testing locally, like on your PC
+    from constant import PROBLEM_LIST, STEP_FEATURES
 
 class FuzzyPedagogicalAgent(object):
     def __init__(self):
